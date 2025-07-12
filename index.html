@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture Painting App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 Gesture Painting App</h1>
+            <div class="mode-indicator">
+                <span id="current-mode">Drawing Mode</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="camera-container">
+                <video id="camera" autoplay muted playsinline></video>
+                <canvas id="hand-canvas" class="hand-overlay"></canvas>
+                <div class="camera-overlay">
+                    <div class="hand-tracking-info">
+                        <span id="hand-status">No hand detected</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="painting-area">
+                <canvas id="painting-canvas"></canvas>
+                <div class="canvas-overlay">
+                    <div class="gesture-info">
+                        <span id="gesture-info">Point your index finger to draw</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="tool-section">
+                <h3>Tools</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn active" data-tool="draw">🖌️ Draw</button>
+                    <button class="tool-btn" data-tool="erase">🧽 Erase</button>
+                    <button class="tool-btn" data-tool="select">👆 Select</button>
+                </div>
+            </div>
+
+            <div class="color-section">
+                <h3>Colors</h3>
+                <div class="color-palette">
+                    <div class="color-btn active" data-color="#000000" style="background-color: #000000;"></div>
+                    <div class="color-btn" data-color="#ff0000" style="background-color: #ff0000;"></div>
+                    <div class="color-btn" data-color="#00ff00" style="background-color: #00ff00;"></div>
+                    <div class="color-btn" data-color="#0000ff" style="background-color: #0000ff;"></div>
+                    <div class="color-btn" data-color="#ffff00" style="background-color: #ffff00;"></div>
+                    <div class="color-btn" data-color="#ff00ff" style="background-color: #ff00ff;"></div>
+                    <div class="color-btn" data-color="#00ffff" style="background-color: #00ffff;"></div>
+                    <div class="color-btn" data-color="#ff8800" style="background-color: #ff8800;"></div>
+                </div>
+            </div>
+
+            <div class="brush-section">
+                <h3>Brush Size</h3>
+                <input type="range" id="brush-size" min="1" max="50" value="5">
+                <span id="brush-size-value">5px</span>
+            </div>
+
+            <div class="action-buttons">
+                <button id="clear-btn">🗑️ Clear Canvas</button>
+                <button id="save-btn">💾 Save Image</button>
+                <button id="test-btn">🧪 Test Hand Tracking</button>
+                <button id="camera-test-btn">📹 Test Camera</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>Gesture Controls:</h3>
+            <ul>
+                <li>👆 <strong>Point with index finger:</strong> Drawing mode</li>
+                <li>✋ <strong>Open palm:</strong> Erasing mode</li>
+                <li>👌 <strong>Pinch gesture:</strong> Color/tool selection mode</li>
+                <li>✊ <strong>Fist:</strong> Clear canvas</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248252/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
