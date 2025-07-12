@@ -14,8 +14,8 @@ class GesturePaintingApp {
         this.lastPoint = null;
         
         // Hand tracking
-        this.hands = null;
-        this.camera = null;
+        this.handLandmarker = null;
+        this.lastVideoTime = -1;
         this.handDetected = false;
         this.gestureHistory = [];
         
@@ -97,40 +97,34 @@ class GesturePaintingApp {
         try {
             console.log('🔍 Starting hand tracking initialization...');
             
-            // Wait for MediaPipe to load
-            await this.waitForMediaPipe();
+            const { HandLandmarker, FilesetResolver } = window.Vision;
+
+            const filesetResolver = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            );
+
+            this.handLandmarker = await HandLandmarker.createFromOptions(
+                filesetResolver,
+                {
+                    baseOptions: {
+                        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1
+                }
+            );
             
-            // Initialize camera first
             await this.initializeCamera();
-            
-            // Initialize MediaPipe Hands
-            await this.initializeMediaPipeHands();
             
             console.log('✅ Hand tracking initialization complete');
             this.updateHandStatus('Hand tracking ready');
+            this.startFrameProcessing();
 
         } catch (error) {
             console.error('❌ Error initializing hand tracking:', error);
             this.updateHandStatus('Error: ' + error.message);
-            
-            // Try fallback method
-            this.tryFallbackMethod();
         }
-    }
-
-    async waitForMediaPipe() {
-        console.log('⏳ Waiting for MediaPipe to load...');
-        
-        // Wait up to 10 seconds for MediaPipe to load
-        for (let i = 0; i < 100; i++) {
-            if (typeof Hands !== 'undefined' && typeof Camera !== 'undefined') {
-                console.log('✅ MediaPipe libraries loaded');
-                return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
-        throw new Error('MediaPipe libraries failed to load. Please refresh the page.');
     }
 
     async initializeCamera() {
@@ -163,41 +157,14 @@ class GesturePaintingApp {
         }
     }
 
-    async initializeMediaPipeHands() {
-        console.log('🤖 Initializing MediaPipe Hands...');
-        
-        this.hands = new Hands({
-            locateFile: (file) => {
-                console.log('📁 Loading MediaPipe file:', file);
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
-            }
-        });
-
-        this.hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 0, // Use simpler model for better performance
-            minDetectionConfidence: 0.3,
-            minTrackingConfidence: 0.3
-        });
-
-        this.hands.onResults((results) => {
-            this.onHandResults(results);
-        });
-
-        // Start processing frames
-        this.startFrameProcessing();
-    }
-
     startFrameProcessing() {
         console.log('🔄 Starting frame processing...');
         
         const processFrame = async () => {
-            if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
-                try {
-                    await this.hands.send({ image: this.video });
-                } catch (error) {
-                    console.error('❌ Error processing frame:', error);
-                }
+            if (this.video.readyState === this.video.HAVE_ENOUGH_DATA && this.video.currentTime !== this.lastVideoTime) {
+                this.lastVideoTime = this.video.currentTime;
+                const results = this.handLandmarker.detectForVideo(this.video, Date.now());
+                this.onHandResults(results);
             }
             requestAnimationFrame(processFrame);
         };
@@ -205,60 +172,14 @@ class GesturePaintingApp {
         processFrame();
     }
 
-    async tryFallbackMethod() {
-        console.log('🔄 Trying fallback method...');
-        
-        try {
-            // Try with even lower settings
-            this.hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
-                }
-            });
-
-            this.hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 0,
-                minDetectionConfidence: 0.1, // Very low threshold
-                minTrackingConfidence: 0.1
-            });
-
-            this.hands.onResults((results) => {
-                this.onHandResults(results);
-            });
-
-            this.startFrameProcessing();
-            
-            console.log('✅ Fallback method successful');
-            this.updateHandStatus('Hand tracking (fallback mode)');
-
-        } catch (error) {
-            console.error('❌ Fallback method failed:', error);
-            this.updateHandStatus('Hand tracking failed');
-            alert('Hand tracking failed to initialize. Please refresh the page and try again.');
-        }
-    }
-
     onHandResults(results) {
         this.handCtx.clearRect(0, 0, this.handCanvas.width, this.handCanvas.height);
 
-        // Debug: Log results structure
-        if (this.debugCounter === undefined) this.debugCounter = 0;
-        this.debugCounter++;
-        if (this.debugCounter % 30 === 0) { // Log every 30 frames
-            console.log('📊 Hand results:', {
-                multiHandLandmarks: results.multiHandLandmarks?.length || 0,
-                multiHandedness: results.multiHandedness?.length || 0,
-                hasResults: !!results
-            });
-        }
-
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        if (results.landmarks && results.landmarks.length > 0) {
             this.handDetected = true;
             this.updateHandStatus('Hand detected');
             
-            const landmarks = results.multiHandLandmarks[0];
-            console.log('👋 Processing hand landmarks:', landmarks.length);
+            const landmarks = results.landmarks[0];
             
             this.drawHandLandmarks(landmarks);
             this.processHandGestures(landmarks);
@@ -720,20 +641,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Check if MediaPipe libraries are loaded
     setTimeout(() => {
-        if (typeof Hands === 'undefined') {
-            console.error('❌ MediaPipe Hands not loaded!');
-            alert('MediaPipe Hands library failed to load. Please check your internet connection and refresh the page.');
+        if (typeof window.Vision === 'undefined') {
+            console.error('❌ MediaPipe Vision library not loaded!');
+            alert('MediaPipe Vision library failed to load. Please check your internet connection and refresh the page.');
         } else {
-            console.log('✅ MediaPipe Hands library loaded successfully');
-        }
-        
-        if (typeof Camera === 'undefined') {
-            console.error('❌ MediaPipe Camera not loaded!');
-            alert('MediaPipe Camera library failed to load. Please check your internet connection and refresh the page.');
-        } else {
-            console.log('✅ MediaPipe Camera library loaded successfully');
+            console.log('✅ MediaPipe Vision library loaded successfully');
         }
     }, 2000);
     
     new GesturePaintingApp();
-}); 
+});
